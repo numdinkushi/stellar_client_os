@@ -2,6 +2,11 @@
 
 use soroban_sdk::{symbol_short, Env, Symbol};
 
+pub const LEDGER_TTL_THRESHOLD: u32 = 518_400;
+pub const LEDGER_TTL_EXTEND_TO: u32 = 535_680;
+pub const MAX_PROTOCOL_FEE_BPS: u32 = 500;
+pub const FEE_BPS_DENOMINATOR: i128 = 10_000;
+
 const REENTRANCY_LOCK: Symbol = symbol_short!("reentry");
 
 pub struct ReentrancyGuard {
@@ -28,6 +33,12 @@ impl Drop for ReentrancyGuard {
     fn drop(&mut self) {
         self.env.storage().instance().remove(&REENTRANCY_LOCK);
     }
+}
+
+pub fn extend_instance_ttl(env: &Env) {
+    env.storage()
+        .instance()
+        .extend_ttl(LEDGER_TTL_THRESHOLD, LEDGER_TTL_EXTEND_TO);
 }
 
 #[cfg(test)]

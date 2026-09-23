@@ -351,7 +351,7 @@
             "key": {
               "vec": [
                 {
-                  "symbol": "history"
+                  "symbol": "History"
                 },
                 {
                   "u64": 0
@@ -371,7 +371,7 @@
                 "key": {
                   "vec": [
                     {
-                      "symbol": "history"
+                      "symbol": "History"
                     },
                     {
                       "u64": 0
@@ -430,7 +430,7 @@
             },
             "ext": "v0"
           },
-          4095
+          535680
         ]
       ],
       [
@@ -440,7 +440,7 @@
             "key": {
               "vec": [
                 {
-                  "symbol": "history"
+                  "symbol": "History"
                 },
                 {
                   "u64": 1
@@ -460,7 +460,7 @@
                 "key": {
                   "vec": [
                     {
-                      "symbol": "history"
+                      "symbol": "History"
                     },
                     {
                       "u64": 1
@@ -519,7 +519,7 @@
             },
             "ext": "v0"
           },
-          4095
+          535680
         ]
       ],
       [
@@ -529,7 +529,7 @@
             "key": {
               "vec": [
                 {
-                  "symbol": "tok_stats"
+                  "symbol": "TokenStats"
                 },
                 {
                   "address": "CBEPDNVYXQGWB5YUBXKJWYJA7OXTZW5LFLNO5JRRGE6Z6C5OSUZPCCEL"
@@ -549,7 +549,7 @@
                 "key": {
                   "vec": [
                     {
-                      "symbol": "tok_stats"
+                      "symbol": "TokenStats"
                     },
                     {
                       "address": "CBEPDNVYXQGWB5YUBXKJWYJA7OXTZW5LFLNO5JRRGE6Z6C5OSUZPCCEL"
@@ -592,7 +592,7 @@
             },
             "ext": "v0"
           },
-          4095
+          535680
         ]
       ],
       [
@@ -602,7 +602,7 @@
             "key": {
               "vec": [
                 {
-                  "symbol": "usr_stats"
+                  "symbol": "UserStats"
                 },
                 {
                   "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMDR4"
@@ -622,7 +622,7 @@
                 "key": {
                   "vec": [
                     {
-                      "symbol": "usr_stats"
+                      "symbol": "UserStats"
                     },
                     {
                       "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMDR4"
@@ -657,7 +657,7 @@
             },
             "ext": "v0"
           },
-          4095
+          535680
         ]
       ],
       [
@@ -685,7 +685,11 @@
                     "storage": [
                       {
                         "key": {
-                          "symbol": "admin"
+                          "vec": [
+                            {
+                              "symbol": "Admin"
+                            }
+                          ]
                         },
                         "val": {
                           "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAITA4"
@@ -693,7 +697,11 @@
                       },
                       {
                         "key": {
-                          "symbol": "fee_addr"
+                          "vec": [
+                            {
+                              "symbol": "FeeAddress"
+                            }
+                          ]
                         },
                         "val": {
                           "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK3IM"
@@ -701,7 +709,11 @@
                       },
                       {
                         "key": {
-                          "symbol": "fee_pct"
+                          "vec": [
+                            {
+                              "symbol": "FeePercent"
+                            }
+                          ]
                         },
                         "val": {
                           "u32": 250
@@ -709,7 +721,11 @@
                       },
                       {
                         "key": {
-                          "symbol": "hist_cnt"
+                          "vec": [
+                            {
+                              "symbol": "HistoryCount"
+                            }
+                          ]
                         },
                         "val": {
                           "u64": 2
@@ -717,7 +733,11 @@
                       },
                       {
                         "key": {
-                          "symbol": "tot_amt"
+                          "vec": [
+                            {
+                              "symbol": "TotalAmount"
+                            }
+                          ]
                         },
                         "val": {
                           "i128": {
@@ -728,7 +748,11 @@
                       },
                       {
                         "key": {
-                          "symbol": "tot_dist"
+                          "vec": [
+                            {
+                              "symbol": "TotalDistributions"
+                            }
+                          ]
                         },
                         "val": {
                           "u64": 2
@@ -741,7 +765,7 @@
             },
             "ext": "v0"
           },
-          4095
+          535680
         ]
       ],
       [
@@ -1192,7 +1216,7 @@
             },
             "ext": "v0"
           },
-          4095
+          535680
         ]
       ]
     ]

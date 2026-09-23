@@ -1,5 +1,7 @@
 #![no_std]
-use contract_common::ReentrancyGuard;
+use contract_common::{
+    extend_instance_ttl, ReentrancyGuard, LEDGER_TTL_EXTEND_TO, LEDGER_TTL_THRESHOLD,
+};
 use soroban_sdk::{
     contract, contracterror, contractimpl, contracttype, token, Address, Env, Symbol,
 };
@@ -30,8 +32,6 @@ pub enum StreamStatus {
     Completed,
 }
 
-const LEDGER_THRESHOLD: u32 = 518_400;
-const LEDGER_BUMP: u32 = 535_680;
 
 #[contracttype]
 #[derive(Clone, Debug)]
@@ -131,7 +131,7 @@ impl PaymentStreamContract {
         env.storage().instance().set(&DataKey::Admin, &admin);
         env.storage().instance().set(&DataKey::StreamCounter, &0u64);
         env.storage().instance().set(&DataKey::OwnershipCounter, &0u64);
-        Self::extend_instance_ttl(&env);
+        extend_instance_ttl(&env);
 
         Ok(())
     }
@@ -194,7 +194,7 @@ impl PaymentStreamContract {
             .persistent()
             .set(&DataKey::Stream(new_stream_id), &stream);
         Self::extend_persistent_ttl(&env, &DataKey::Stream(new_stream_id));
-        Self::extend_instance_ttl(&env);
+        extend_instance_ttl(&env);
 
         env.events().publish(
             (Symbol::new(&env, "stream_created"),),
@@ -466,7 +466,7 @@ impl PaymentStreamContract {
             &DataKey::StreamOwnershipRecord(new_ownership_id),
         );
         Self::extend_persistent_ttl(&env, &DataKey::OwnershipToStream(new_ownership_id));
-        Self::extend_instance_ttl(&env);
+        extend_instance_ttl(&env);
 
         new_ownership_id
     }
@@ -496,16 +496,10 @@ impl PaymentStreamContract {
             .unwrap_or_else(|| soroban_sdk::panic_with_error!(env, Error::ReentrantCall))
     }
 
-    fn extend_instance_ttl(env: &Env) {
-        env.storage()
-            .instance()
-            .extend_ttl(LEDGER_THRESHOLD, LEDGER_BUMP);
-    }
-
     fn extend_persistent_ttl(env: &Env, key: &DataKey) {
         env.storage()
             .persistent()
-            .extend_ttl(key, LEDGER_THRESHOLD, LEDGER_BUMP);
+            .extend_ttl(key, LEDGER_TTL_THRESHOLD, LEDGER_TTL_EXTEND_TO);
     }
 }
 

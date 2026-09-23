@@ -1887,5 +1887,34 @@ fn test_reentrant_token_callback_is_rejected() {
     );
     assert_eq!(stream_id, 1);
 }
-    
+
+#[test]
+fn test_reentrant_deposit_is_rejected() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let admin = Address::generate(&env);
+    let fee_collector = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    let contract_id = env.register(PaymentStreamContract, ());
+    let client = PaymentStreamContractClient::new(&env, &contract_id);
+    client.initialize(&admin, &fee_collector, &0);
+
+    let reentrant_token_id = env.register(ReentrantToken, ());
+    let reentrant_token = ReentrantTokenClient::new(&env, &reentrant_token_id);
+    reentrant_token.initialize(&contract_id);
+
+    let stream_id = client.create_stream(
+        &sender,
+        &recipient,
+        &reentrant_token_id,
+        &1_000,
+        &0,
+        &0,
+        &100,
+    );
+    let result = client.try_deposit(&stream_id, &100);
+    assert!(result.is_err());
+}
 }

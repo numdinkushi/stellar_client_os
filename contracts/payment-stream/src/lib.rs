@@ -1,5 +1,8 @@
 #![no_std]
-use contract_common::ReentrancyGuard;
+use contract_common::{
+    ReentrancyGuard, LEDGER_TTL_EXTEND_TO as LEDGER_BUMP, LEDGER_TTL_THRESHOLD as LEDGER_THRESHOLD,
+    MAX_PROTOCOL_FEE_BPS as MAX_FEE,
+};
 use soroban_sdk::{contract, contracterror, contractimpl, contracttype, panic_with_error, token, Address, Env, Symbol};
 
 /// Stream status enum
@@ -126,11 +129,6 @@ pub enum Error {
     InvalidDelegate = 16,
     ReentrantCall = 17,
 }
-
-// Constants
-const MAX_FEE: u32 = 500; // 5% in basis points
-const LEDGER_THRESHOLD: u32 = 518400; // ~30 days at 5s/ledger
-const LEDGER_BUMP: u32 = 535680; // ~31 days
 
 #[contract]
 pub struct PaymentStreamContract;
