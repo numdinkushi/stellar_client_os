@@ -5,7 +5,17 @@ members = [
     "payment-stream",
     "distributor",
     "nft-stream",
-    "libs/common"
+    "libs/common",
+    "campaign-funding",
+    "soulbound-badge",
+    "verifier-penalty",
+    "planter",
+    "dispute-arbiter",
+    "timelock",
+    "upgrade-proxy",
+    "sponsor-crowdfunding",
+    "sponsor-insurance",
+    "donor-verification",
 ]
 
 [workspace.package]
@@ -15,7 +25,7 @@ license = "MIT"
 repository = "https://github.com/Fundable-Protocol/stellar_client"
 
 [workspace.dependencies]
-soroban-sdk = "22.0.0"
+soroban-sdk = "=25.3.2"
 contract-common = { path = "libs/common" }
 
 [profile.release]

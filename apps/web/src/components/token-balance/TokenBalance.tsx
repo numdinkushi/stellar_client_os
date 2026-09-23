@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
+import { RefreshCw } from "lucide-react";
 import { TokenBalanceProps } from "@/types/token-balance.types";
 import { formatBalance } from "@/utils/format-balance";
 
@@ -68,18 +69,32 @@ export function TokenBalance({
   iconUrl,
 }: TokenBalanceProps) {
   const [imageError, setImageError] = useState(false);
+  const [imageTimedOut, setImageTimedOut] = useState(false);
   const formattedBalance = formatBalance(balance);
 
-  // Reset error state when icon URL or asset code changes
-  // This allows the component to attempt loading the new icon
+  // Handle image timeout for slow connections (3G)
   useEffect(() => {
+    if (!iconUrl) return;
+
+    const timeoutId = setTimeout(() => {
+      setImageTimedOut(true);
+      setImageError(true);
+    }, 15000);
+
+    return () => clearTimeout(timeoutId);
+  }, [iconUrl]);
+
+  const handleRetry = () => {
     setImageError(false);
-  }, [iconUrl, assetCode]);
+    setImageTimedOut(false);
+  };
+
+  // Use key to reset state when iconUrl or assetCode changes
+  const resetKey = `${iconUrl ?? ""}-${assetCode}`;
 
   return (
-    <div className="flex items-center gap-4 p-4 bg-zinc-800 rounded-lg border border-zinc-700 hover:border-zinc-600 transition-colors">
-      {/* Token Icon */}
-      <div className="shrink-0 w-10 h-10 rounded-full bg-white flex items-center justify-center overflow-hidden p-1.5">
+    <div key={resetKey} className="flex items-center gap-4 p-4 bg-zinc-800 rounded-lg border border-zinc-700 hover:border-zinc-600 transition-colors">
+      <div className="shrink-0 w-10 h-10 rounded-full bg-white flex items-center justify-center overflow-hidden p-1.5 relative">
         {iconUrl && !imageError ? (
           <Image
             src={iconUrl}
@@ -88,22 +103,26 @@ export function TokenBalance({
             height={40}
             className="w-full h-full object-contain"
             onError={() => setImageError(true)}
-            unoptimized // Required for external images without domain configuration
+            unoptimized
           />
         ) : (
-          // Fallback icon - displays first letter of asset code
           <span className="text-lg font-bold text-violet-400">
             {assetCode.charAt(0)}
           </span>
         )}
+        {imageTimedOut && (
+          <button
+            onClick={handleRetry}
+            className="absolute inset-0 bg-black/60 flex items-center justify-center rounded-full hover:bg-black/70 transition-colors"
+            title="Retry loading image"
+          >
+            <RefreshCw className="w-4 h-4 text-white" />
+          </button>
+        )}
       </div>
 
-      {/* Token Information */}
       <div className="flex-1 min-w-0">
-        {/* Asset Code */}
         <div className="font-semibold text-zinc-50 text-base">{assetCode}</div>
-
-        {/* Asset Issuer (truncated for custom tokens) */}
         {assetIssuer && (
           <div className="text-xs text-zinc-400 font-mono truncate">
             {assetIssuer.substring(0, 8)}...
@@ -112,7 +131,6 @@ export function TokenBalance({
         )}
       </div>
 
-      {/* Balance Amount */}
       <div className="shrink-0 text-right">
         <div className="font-semibold text-lg text-violet-400">
           {formattedBalance}

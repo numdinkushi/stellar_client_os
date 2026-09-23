@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 
-import { User2 } from "lucide-react";
+import { Trophy, User2 } from "lucide-react";
 import { Sidebar, useSidebar } from "@/components/ui/sidebar";
 
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -25,6 +25,11 @@ const items = [
     icon: <DashboardIcon aria-hidden="true" />,
   },
   {
+    title: "Campaigns",
+    url: "/campaigns",
+    icon: <BookIcon aria-hidden="true" />,
+  },
+  {
     title: "Distribution",
     url: "/distribution",
     icon: <DistributionIcon aria-hidden="true" />,
@@ -33,6 +38,11 @@ const items = [
     title: "History",
     url: "/history",
     icon: <User2 aria-hidden="true" className="text-white size-5" />,
+  },
+  {
+    title: "Leaderboard",
+    url: "/leaderboard",
+    icon: <Trophy aria-hidden="true" className="text-white size-5" />,
   },
   {
     title: "Payment Stream",
@@ -48,6 +58,11 @@ const items = [
     title: "Contracts",
     url: "/deploy-contract",
     icon: <BookIcon aria-hidden="true" />,
+  },
+  {
+    title: "Referrals",
+    url: "/social",
+    icon: <User2 aria-hidden="true" className="text-white size-5" />,
   },
   {
     title: "Airdrop",

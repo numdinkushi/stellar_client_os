@@ -12,14 +12,11 @@
  */
 
 import {
-  NativeBalance,
   Transaction,
   FeeBumpTransaction,
   Keypair,
   TransactionBuilder,
   Operation,
-  Asset,
-  Memo,
   Networks,
   xdr,
   Address,
@@ -44,12 +41,10 @@ import type {
 } from './types';
 import {
   StellarError,
-  NetworkError,
   TransactionError,
   TransactionTimeoutError,
   ContractError,
   SimulationError,
-  AccountNotFoundError,
   StreamNotFoundError,
   InsufficientFundsError,
   ValidationError,
@@ -62,21 +57,6 @@ import { getStellarServerOptions } from '@/utils/rpc-connection-options';
 const DEFAULT_TIMEOUT = 30; // seconds
 const DEFAULT_MAX_RETRIES = 3;
 const DEFAULT_BASE_FEE = '100'; // stroops
-
-const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
-
-function allowLocalHttp(url: string): boolean {
-  if (process.env.NODE_ENV === 'production') {
-    return false;
-  }
-
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol === 'http:' && LOOPBACK_HOSTS.has(parsed.hostname);
-  } catch {
-    return false;
-  }
-}
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -92,6 +72,7 @@ export class StellarService {
   private readonly networkPassphrase: string;
   private readonly paymentStreamContractId: string;
   private readonly distributorContractId: string;
+  private readonly carbonCertificateContractId: string;
   private readonly defaultTimeout: number;
   private readonly maxRetries: number;
 
@@ -107,6 +88,8 @@ export class StellarService {
     this.networkPassphrase = config.network.networkPassphrase;
     this.paymentStreamContractId = config.contracts.paymentStream;
     this.distributorContractId = config.contracts.distributor;
+    this.carbonCertificateContractId =
+      (config.contracts as { carbonCertificate?: string }).carbonCertificate ?? '';
     this.defaultTimeout = config.defaultTimeout ?? DEFAULT_TIMEOUT;
     this.maxRetries = config.maxRetries ?? DEFAULT_MAX_RETRIES;
   }
@@ -120,16 +103,16 @@ export class StellarService {
    * @param address - Stellar account address
    * @returns Account information including balances
    */
-  async getAccount(address: string, signal?: AbortSignal): Promise<AccountInfo> {
+  async getAccount(address: string, signal?: AbortSignal): Promise<AccountInfo | null> {
     return withRetry(async () => {
       try {
         const account = await withAbortSignal(this.horizonServer.loadAccount(address), signal);
 
-        const balances: AccountBalance[] = account.balances.map((bal: Horizon.BalanceLine) => ({
+        const balances: AccountBalance[] = account.balances.map((bal) => ({
           balance: bal.balance,
           assetType: bal.asset_type,
-          assetCode: 'asset_code' in bal ? (bal as Horizon.BalanceLineAsset).asset_code : undefined,
-          assetIssuer: 'asset_issuer' in bal ? (bal as Horizon.BalanceLineAsset).asset_issuer : undefined,
+          assetCode: 'asset_code' in bal ? bal.asset_code : undefined,
+          assetIssuer: 'asset_issuer' in bal ? bal.asset_issuer : undefined,
         }));
 
         return {
@@ -143,7 +126,7 @@ export class StellarService {
         }
         const err = error as Error & { response?: { status?: number } };
         if (err?.response?.status === 404) {
-          throw new AccountNotFoundError(address, err); // 404 — not retried
+          return null; // 404 — unfunded account, return null gracefully
         }
         throw parseError(error);
       }
@@ -156,18 +139,12 @@ export class StellarService {
    * @returns true if account exists
    */
   async accountExists(address: string): Promise<boolean> {
-    return withRetry(async () => {
-      try {
-        await this.horizonServer.loadAccount(address);
-        return true;
-      } catch (error) {
-        const err = error as Error & { response?: { status?: number } };
-        if (err?.response?.status === 404) {
-          return false;
-        }
-        throw error;
-      }
-    }, { maxRetries: this.maxRetries });
+    try {
+      await this.horizonServer.loadAccount(address);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   // ============================================
@@ -308,6 +285,34 @@ export class StellarService {
     } catch (error) {
       throw parseError(error);
     }
+  }
+
+  /**
+   * Clone an existing payment stream's structure to create a new stream.
+   * Used by the campaign "Clone" button to copy recipient, goal, and timeline
+   * from a successful campaign.
+   *
+   * @param streamId - ID of the stream/campaign to clone
+   * @param signerKeypair - Keypair for signing the new stream (becomes the new sender)
+   * @returns Transaction result with the new stream ID
+   */
+  async cloneStream(
+    streamId: bigint,
+    signerKeypair: Keypair
+  ): Promise<TransactionResult<bigint>> {
+    const existing = await this.getStream(streamId);
+
+    if (!existing) {
+      throw new StreamNotFoundError(streamId, new Error('Stream not found'));
+    }
+
+    return this.createStream({
+      recipient: existing.recipient,
+      token: existing.token,
+      totalAmount: existing.totalAmount,
+      startTime: existing.startTime,
+      endTime: existing.endTime,
+    }, signerKeypair);
   }
 
   /**
@@ -669,6 +674,109 @@ export class StellarService {
   }
 
   // ============================================
+  // Carbon Certificate Methods (Soroban RPC)
+  // ============================================
+
+  /**
+   * Get a carbon certificate by ID
+   * @param certificateId - Carbon certificate ID
+   * @returns Carbon certificate data or null if not found
+   */
+  async getCarbonCertificate(certificateId: bigint): Promise<{
+    id: bigint;
+    owner: string;
+    amount: bigint;
+    status: string;
+  } | null> {
+    try {
+      const result = await this.invokeContractReadOnly<Record<string, unknown>>(
+        this.carbonCertificateContractId,
+        'get_certificate',
+        [nativeToScVal(certificateId, { type: 'u64' })]
+      );
+
+      if (!result) {
+        return null;
+      }
+
+      return {
+        id: BigInt(String(result.id ?? certificateId)),
+        owner: String(result.owner),
+        amount: BigInt(String(result.amount ?? 0)),
+        status: String(result.status ?? 'Active'),
+      };
+    } catch (error) {
+      if ((error as Error).message?.includes('not found')) {
+        return null;
+      }
+      throw parseError(error);
+    }
+  }
+
+  /**
+   * Issue a tradeable carbon offset certificate.
+   * @param owner - Address receiving the certificate
+   * @param amount - Offset credit amount in the certificate
+   * @param signerKeypair - Keypair authorized to issue certificates
+   * @returns Transaction result with the new certificate ID
+   */
+  async issueCarbonCertificate(
+    owner: string,
+    amount: bigint,
+    signerKeypair: Keypair
+  ): Promise<TransactionResult<bigint>> {
+    if (!this.isValidAddress(owner)) {
+      throw new ValidationError('Invalid owner address', 'owner');
+    }
+    if (amount <= 0n) {
+      throw new ValidationError('Amount must be positive', 'amount');
+    }
+
+    const args = [
+      new Address(signerKeypair.publicKey()).toScVal(),
+      new Address(owner).toScVal(),
+      nativeToScVal(amount, { type: 'i128' }),
+    ];
+
+    return this.invokeContract<bigint>(
+      this.carbonCertificateContractId,
+      'issue_certificate',
+      args,
+      signerKeypair
+    );
+  }
+
+  /**
+   * Transfer a carbon certificate to a new owner (e.g. selling on a marketplace)
+   * @param certificateId - Certificate ID to transfer
+   * @param recipient - New owner address
+   * @param signerKeypair - Keypair of the current owner
+   * @returns Transaction result
+   */
+  async transferCarbonCertificate(
+    certificateId: bigint,
+    recipient: string,
+    signerKeypair: Keypair
+  ): Promise<TransactionResult<void>> {
+    if (!this.isValidAddress(recipient)) {
+      throw new ValidationError('Invalid recipient address', 'recipient');
+    }
+
+    const args = [
+      new Address(signerKeypair.publicKey()).toScVal(),
+      nativeToScVal(certificateId, { type: 'u64' }),
+      new Address(recipient).toScVal(),
+    ];
+
+    return this.invokeContract<void>(
+      this.carbonCertificateContractId,
+      'transfer_certificate',
+      args,
+      signerKeypair
+    );
+  }
+
+  // ============================================
   // Private Methods: Contract Invocation
   // ============================================
 
@@ -685,7 +793,7 @@ export class StellarService {
       let sourceAddress: string;
       try {
         const accountResponse = await this.rpcServer.getAccount(contractId);
-        sourceAddress = accountResponse.id;
+        sourceAddress = accountResponse.accountId();
       } catch {
         // Fallback for contract IDs or if getAccount fails
         sourceAddress = contractId;
@@ -824,7 +932,7 @@ export class StellarService {
     }
 
     // Poll for transaction result
-    let getResponse = await this.rpcServer.getTransaction(hash);
+    let getResponse = await withRetry(() => this.rpcServer.getTransaction(hash), { maxRetries: this.maxRetries });
     const maxWaitTime = this.defaultTimeout * 1000;
     const startTime = Date.now();
 
@@ -834,7 +942,7 @@ export class StellarService {
       }
 
       await sleep(1000);
-      getResponse = await this.rpcServer.getTransaction(hash);
+      getResponse = await withRetry(() => this.rpcServer.getTransaction(hash), { maxRetries: this.maxRetries });
     }
 
     if (getResponse.status === Api.GetTransactionStatus.SUCCESS) {
@@ -944,10 +1052,10 @@ export class StellarService {
       sender: String(result.sender),
       recipient: String(result.recipient),
       token: String(result.token),
-      totalAmount: BigInt((result.total_amount ?? result.totalAmount ?? 0) as any),
-      withdrawnAmount: BigInt((result.withdrawn_amount ?? result.withdrawnAmount ?? 0) as any),
-      startTime: BigInt((result.start_time ?? result.startTime ?? 0) as any),
-      endTime: BigInt((result.end_time ?? result.endTime ?? 0) as any),
+      totalAmount: BigInt(String(result.total_amount ?? result.totalAmount ?? 0)),
+      withdrawnAmount: BigInt(String(result.withdrawn_amount ?? result.withdrawnAmount ?? 0)),
+      startTime: BigInt(String(result.start_time ?? result.startTime ?? 0)),
+      endTime: BigInt(String(result.end_time ?? result.endTime ?? 0)),
       status: statusMap[String(result.status)] || 'Active',
     };
   }
@@ -963,6 +1071,7 @@ export class StellarService {
 export function createTestnetService(contracts: {
   paymentStream: string;
   distributor: string;
+  carbonCertificate?: string;
 }): StellarService {
   return new StellarService({
     network: {
@@ -980,6 +1089,7 @@ export function createTestnetService(contracts: {
 export function createMainnetService(contracts: {
   paymentStream: string;
   distributor: string;
+  carbonCertificate?: string;
 }): StellarService {
   return new StellarService({
     network: {
